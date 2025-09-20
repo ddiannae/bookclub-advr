@@ -2,12 +2,195 @@
 
 **Learning objectives:**
 
-- THESE ARE NICE TO HAVE BUT NOT ABSOLUTELY NECESSARY
+- Understanding enviroments is not necesary for day-to-day use of R
+- Learn how enviroments are used to implement scoping
+- Learn about important and special enviroments
+- Learn about the super assignment
 
-## SLIDE 1
+## Enviroment basics
 
-- ADD SLIDES AS SECTIONS (`##`).
-- TRY TO KEEP THEM RELATIVELY SLIDE-LIKE; THESE ARE NOTES, NOT THE BOOK ITSELF.
+They're the data structure that powers scoping: it's where we look for objects.
+
+They look like a list but have four important differences: 
+
+- Every name must be unique
+- Names are not ordered
+- An enviroment has a parent
+- Enviroments are not copied when modified
+
+**What do they do?**
+
+They **bind** a set of names with a set of values.
+
+![](images/07_bindings.png)
+
+They can even bind themselves!
+
+## Important enviroments
+
+
+```{r ch7_setup, message = FALSE, warning = FALSE}
+library(rlang)
+library(glue)
+```
+
+- Current environment: Enviroment in which code is currently executing. `current_env()`, accessed with `enviroment()`
+- Global environment: Where all interactive computation takes place. Also called **workspace**. `global_env()` accessed with `globalenv()`
+
+```{r}
+current_env()
+
+f <- function() {
+  print("Env inside a function")
+  print(current_env())
+}
+
+f()
+```
+
+**Parents**
+
+![](images/07_parents.jpg)
+
+Every enviroment has a parent, another enviroment.  If a lookup fails in `current_env()`, R will look in the parent. 
+
+```{r}
+env_parents(current_env())
+```
+
+The only enviroment that doesn't have a parent: the empty enviroment
+
+```{r error=TRUE}
+parent.env(empty_env())
+```
+
+**:(**
+
+## The super asignment
+
+`<-` creates a variable in the current enviroment. 
+ 
+`<<-`  modifies an existing variable in the parent enviroment OR creates a new one in `.GlobalEnv`
+
+```{r}
+a <- 3
+f <- function (){
+  a <- 5
+  a <<- 10
+  b <<- 8
+  print("Oops! I've modified variables outside my scope")
+  glue("The value of my a = {a}")
+}
+f()
+glue("The value of .GobalEnv's a = {a}")
+glue("The value of .GobalEnv's b = {b}")
+```
+
+Those variables can be also accessed like this: 
+
+```{r}
+ge <- global_env()
+ge$a
+ge[["b"]]
+```
+
+or 
+
+```{r}
+env_get(ge, "a")
+```
+
+To check if an enviroment has a binding: 
+
+```{r}
+env_has(ge, "c")
+env_has(ge, "b")
+```
+
+`ge[[1]]` will not work because elements have no order. 
+
+## Special enviroments
+
+### Package enviroments
+
+Every package attached becomes a parent of `.GlobalEnv`. In order: last one attached, first parent. 
+
+Together, they form the **search path**
+
+![](images/07_search-path.png)
+
+```{r}
+search()
+```
+
+Last two are always the same: 
+
+- `Autoloads`: to load package objects, like datasets, only when needed.
+- `package:base`: the enviroment of the base package.
+
+### Function enviroments
+
+The enviroment where a function is created. It is bound by the function. 
+
+Functions in R are also called **closures** because they capture or enclose their enviroment. 
+
+Function with `.GlobalEnv` as its function enviroment, with its name binded in global:
+
+```{r}
+f_in_global <- function(x) x+3
+fn_env(f_in_global)
+env_has(global_env(), "f_in_global")
+```
+
+Function with `.GlobalEnv` as its function enviroment, with its name binded in some other enviroment:
+
+```{r}
+e <- env()
+e$function_in_e <- function() 37
+fn_env(e$function_in_e)
+env_has(global_env(), "function_in_e")
+env_has(e, "function_in_e")
+```
+
+Does it matter? Yes, because it changes the way functions find their variables.
+
+### Namespaces
+
+<details>
+<summary>*If the parent environment of a package varies based on what other packages have been loaded. Does that mean that the package will find different functions if packages are loaded in a different order?*</summary>
+No! Thanks to *namespaces*
+</details>
+
+
+**Important for package developers**
+
+Every function *in a package* is associated with two enviroments: the package environment and the namespace. 
+
+- The package enviroment is the external interface, the namespace is the internal implementation
+- The package environment controls how we find the function; the namespace controls how the function finds its variables.
+
+namespaces have two ancestors: 
+
+- the **imports** enviroments: controlled by the package developer in the `NAMESPACE` file
+- the **base namespace**: so that packages can use any base function
+
+### Execution environment
+ 
+It is created every time a function is called to host execution, and garbage collected, once the function has completed.
+The *fresh start* principle relies on them.
+
+### Caller enviroment
+
+The environment from which the function was called. It varies based on how the function is called, not how the function was created. 
+
+We can see it by looking at the `traceback()`
+
+## Other cool features about enviroments
+
+- They avoid copies of large data. 
+- They manage state within a package
+- They act as a hashmap, so lookups take `O(1)`
+
 
 ## Meeting Videos
 
